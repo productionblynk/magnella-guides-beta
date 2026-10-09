@@ -257,6 +257,13 @@
         </div>
       </div>
 
+      <!-- Roles — Lift Light only. Shown/hidden via JS when product changes. Max 3 per Brooke's 10/08 call. -->
+      <div id="rolesSection" style="display:none; margin-top:20px; padding-top:20px; border-top:1px solid var(--border);">
+        <label>Recent roles <span style="text-transform:none; letter-spacing:0; font-weight:400; color:var(--mute); font-size:11px;">(up to 3; optional but makes the guide sharper)</span></label>
+        <div id="rolesList"></div>
+        <button type="button" id="addRoleBtn" style="margin-top:8px; background:none; border:1px dashed var(--border); color:var(--mute); padding:8px 14px; border-radius:8px; font-family:inherit; font-size:13px; cursor:pointer; width:100%;">+ Add a role</button>
+      </div>
+
       <button type="submit" id="submitBtn">Send me my guide →</button>
       <div class="msg error" id="errMsg"></div>
     </form>
@@ -287,14 +294,40 @@
   const unknownTime = document.getElementById('unknown_time');
   const birthTime = document.getElementById('birth_time');
 
-  // Product card visual selection
+  // Product card visual selection + roles section show/hide
+  const rolesSection = document.getElementById('rolesSection');
   document.querySelectorAll('.product-card').forEach((card) => {
     card.addEventListener('click', () => {
       document.querySelectorAll('.product-card').forEach((c) => c.classList.remove('selected'));
       card.classList.add('selected');
       card.querySelector('input').checked = true;
+      // Lift Light shows roles; Launch hides them.
+      rolesSection.style.display = card.dataset.product === 'lift-light' ? 'block' : 'none';
     });
   });
+
+  // Roles builder (max 3). Each entry = title + industry inputs.
+  const rolesList = document.getElementById('rolesList');
+  const addRoleBtn = document.getElementById('addRoleBtn');
+  function addRoleRow() {
+    if (rolesList.children.length >= 3) return;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:grid; grid-template-columns:1fr 1fr auto; gap:6px; margin-top:8px; align-items:center;';
+    row.innerHTML = `
+      <input type="text" placeholder="Role title (e.g. Director of Engineering)" class="role-title" style="padding:9px 12px; font-size:14px;">
+      <input type="text" placeholder="Industry (e.g. Fintech)" class="role-industry" style="padding:9px 12px; font-size:14px;">
+      <button type="button" aria-label="Remove role" style="background:none; border:none; color:var(--mute); cursor:pointer; font-size:18px; padding:4px 8px;">×</button>
+    `;
+    row.querySelector('button').addEventListener('click', () => {
+      row.remove();
+      addRoleBtn.style.display = rolesList.children.length < 3 ? 'block' : 'none';
+    });
+    rolesList.appendChild(row);
+    if (rolesList.children.length >= 3) addRoleBtn.style.display = 'none';
+  }
+  addRoleBtn.addEventListener('click', addRoleRow);
+  // Start with one row visible so people see the pattern.
+  addRoleRow();
 
   // Unknown-time toggle disables the time field
   unknownTime.addEventListener('change', () => {
@@ -319,6 +352,16 @@
     clearError();
 
     const data = new FormData(form);
+    // Collect roles (Lift Light only; Launch ignores). Skip blank rows.
+    const roles = [];
+    if (data.get('product') === 'lift-light') {
+      rolesList.querySelectorAll('div').forEach((row) => {
+        const title = (row.querySelector('.role-title')?.value || '').trim();
+        const industry = (row.querySelector('.role-industry')?.value || '').trim();
+        if (title && industry) roles.push({ title, industry });
+      });
+    }
+
     const payload = {
       product: data.get('product'),
       legal_name: (data.get('legal_name') || '').trim(),
@@ -326,7 +369,7 @@
       birth_date: data.get('birth_date'),
       birth_city: (data.get('birth_city') || '').trim(),
       birth_country: (data.get('birth_country') || '').trim(),
-      roles: [],
+      roles: roles.slice(0, 3),
     };
 
     // Birth time: HH:MM from the time input → HH:MM:SS for Postgres time type.
