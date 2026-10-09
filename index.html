@@ -401,7 +401,7 @@
     }
 
     // Client-side validation
-    if (!payload.product) return showError('Pick which guide you'd like.');
+    if (!payload.product) return showError("Pick which guide you'd like.");
     if (!payload.legal_name) return showError('Your name is required.');
     if (!payload.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) return showError('Enter a valid email address.');
     if (!payload.birth_date) return showError('Your birth date is required.');
