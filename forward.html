@@ -410,7 +410,12 @@
   async function searchCities(query) {
     const seq = ++cityFetchSeq;
     try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=6&featuretype=city`;
+      // No featureType filter — that restricts to OSM-classified "cities", which
+      // drops international towns/municipalities/localities classified
+      // differently (e.g. Philippine municipalities, Mexican localidades).
+      // Our client-side resolver below handles city / town / village / hamlet /
+      // municipality / county fields regardless of OSM taxonomy.
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=8`;
       // Nominatim accepts the browser's default User-Agent; no custom header needed.
       const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
       if (!res.ok) return;
