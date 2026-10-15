@@ -378,16 +378,27 @@
       hideCityDropdown();
       return;
     }
+    // Debug: log the raw Nominatim response so we can diagnose if filtering is dropping valid places.
+    console.log('[Nominatim] raw results:', results);
     results.forEach((r) => {
       const addr = r.address || {};
       // City-ish name (OSM returns many fields depending on place type).
       const cityName = addr.city || addr.town || addr.village || addr.hamlet
-        || addr.municipality || addr.county || r.name || '';
-      const stateName = addr.state || addr.region || addr.state_district || '';
+        || addr.municipality || addr.suburb || addr.county || r.name || '';
+      const stateName = addr.state || addr.region || addr.state_district || addr.province || '';
       const countryName = addr.country || '';
-      if (!cityName || !countryName) return;
-      const displayLine = [cityName, stateName, countryName].filter(Boolean).join(', ');
-      const cityPlusState = stateName ? `${cityName}, ${stateName}` : cityName;
+      // Fallback for places that don't resolve a clean city-ish field but DO
+      // have a display_name — use the first comma-separated token.
+      let finalCityName = cityName;
+      if (!finalCityName && r.display_name) {
+        finalCityName = r.display_name.split(',')[0].trim();
+      }
+      if (!finalCityName || !countryName) {
+        console.log('[Nominatim] filtered out:', { addr, display_name: r.display_name });
+        return;
+      }
+      const displayLine = [finalCityName, stateName, countryName].filter(Boolean).join(', ');
+      const cityPlusState = stateName ? `${finalCityName}, ${stateName}` : finalCityName;
 
       const row = document.createElement('div');
       row.textContent = displayLine;
@@ -397,7 +408,7 @@
         // dropdown hides before the click registers.
         ev.preventDefault();
         birthCityInput.value = cityPlusState;
-        birthCountryInput.value = countryName;
+        if (countryName) birthCountryInput.value = countryName;
         hideCityDropdown();
       });
       row.addEventListener('mouseenter', () => { row.style.background = 'var(--gold-soft)'; });
