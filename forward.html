@@ -279,7 +279,7 @@
           <input type="text" id="birth_country" name="birth_country" placeholder="USA" required value="USA" autocomplete="country-name">
         </div>
       </div>
-      <p style="font-size:10px; color:var(--mute); margin:4px 0 0; opacity:0.65;">Place suggestions via OpenStreetMap</p>
+      <p style="font-size:10px; color:var(--mute); margin:4px 0 0; opacity:0.65;">Place suggestions via Photon / OpenStreetMap</p>
 
       <!-- Roles — always visible. Lift Light uses them; Launch Light ignores. Max 3 per Brooke's 10/08 call. -->
       <div id="rolesSection" style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border);">
@@ -372,33 +372,39 @@
     cityDropdown.innerHTML = '';
   }
 
-  function renderCityOptions(results) {
+  function renderCityOptions(features) {
     cityDropdown.innerHTML = '';
-    if (!results || results.length === 0) {
+    if (!features || features.length === 0) {
       hideCityDropdown();
       return;
     }
-    // Debug: log the raw Nominatim response so we can diagnose if filtering is dropping valid places.
-    console.log('[Nominatim] raw results:', results);
-    results.forEach((r) => {
-      const addr = r.address || {};
-      // City-ish name (OSM returns many fields depending on place type).
-      const cityName = addr.city || addr.town || addr.village || addr.hamlet
-        || addr.municipality || addr.suburb || addr.county || r.name || '';
-      const stateName = addr.state || addr.region || addr.state_district || addr.province || '';
-      const countryName = addr.country || '';
-      // Fallback for places that don't resolve a clean city-ish field but DO
-      // have a display_name — use the first comma-separated token.
-      let finalCityName = cityName;
-      if (!finalCityName && r.display_name) {
-        finalCityName = r.display_name.split(',')[0].trim();
-      }
-      if (!finalCityName || !countryName) {
-        console.log('[Nominatim] filtered out:', { addr, display_name: r.display_name });
-        return;
-      }
-      const displayLine = [finalCityName, stateName, countryName].filter(Boolean).join(', ');
-      const cityPlusState = stateName ? `${finalCityName}, ${stateName}` : finalCityName;
+    // Photon returns GeoJSON features with a `properties` object:
+    // { name, country, state, city, county, type, osm_value, ... }
+    // Filter to places only — skip streets, buildings, POIs — and dedupe.
+    const seen = new Set();
+    features.forEach((feat) => {
+      const p = feat.properties || {};
+      const osmValue = p.osm_value || '';
+      // Keep place-like features (cities, towns, villages, municipalities,
+      // suburbs, counties, hamlets, districts). Drop streets/POIs/buildings.
+      const PLACE_TYPES = new Set([
+        'city', 'town', 'village', 'municipality', 'suburb', 'hamlet',
+        'county', 'district', 'region', 'locality', 'neighbourhood',
+        'administrative',
+      ]);
+      if (!PLACE_TYPES.has(osmValue)) return;
+
+      const cityName = p.name || p.city || '';
+      const stateName = p.state || p.county || '';
+      const countryName = p.country || '';
+      if (!cityName || !countryName) return;
+
+      // Dedupe on the display line so we don't show "Tampa, Florida, United States" twice.
+      const displayLine = [cityName, stateName, countryName].filter(Boolean).join(', ');
+      if (seen.has(displayLine)) return;
+      seen.add(displayLine);
+
+      const cityPlusState = stateName ? `${cityName}, ${stateName}` : cityName;
 
       const row = document.createElement('div');
       row.textContent = displayLine;
@@ -421,18 +427,18 @@
   async function searchCities(query) {
     const seq = ++cityFetchSeq;
     try {
-      // No featureType filter — that restricts to OSM-classified "cities", which
-      // drops international towns/municipalities/localities classified
-      // differently (e.g. Philippine municipalities, Mexican localidades).
-      // Our client-side resolver below handles city / town / village / hamlet /
-      // municipality / county fields regardless of OSM taxonomy.
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=8`;
-      // Nominatim accepts the browser's default User-Agent; no custom header needed.
+      // Photon (photon.komoot.io) is a free OSM-based geocoder that does
+      // PREFIX matching + autocomplete-style ranking — so "tampa" returns
+      // Tampa + Tampakan + Tamparan + Tampamolon etc. rather than only
+      // literal "Tampa" matches. Same free, no-key, no-rate-limit-for-form-
+      // volume as Nominatim; just better suited for live search.
+      // Response is GeoJSON (features[].properties.{name, country, state, city, osm_value}).
+      const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&lang=en&limit=8`;
       const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
       if (!res.ok) return;
       const data = await res.json();
       if (seq !== cityFetchSeq) return; // stale response — a newer query is in flight
-      renderCityOptions(data);
+      renderCityOptions(data.features || []);
     } catch { /* network error — silently drop; user can still type manually */ }
   }
 
