@@ -269,15 +269,17 @@
       </div>
 
       <div class="row">
-        <div>
+        <div style="position:relative;">
           <label for="birth_city">Birth city<span class="required-marker">*</span></label>
-          <input type="text" id="birth_city" name="birth_city" placeholder="Austin" required autocomplete="address-level2">
+          <input type="text" id="birth_city" name="birth_city" placeholder="Start typing — e.g. Tampa" required autocomplete="off">
+          <div id="cityAutocomplete" style="display:none; position:absolute; top:100%; left:0; right:0; margin-top:4px; background:#fff; border:1px solid var(--border); border-radius:8px; max-height:240px; overflow-y:auto; z-index:50; box-shadow:0 8px 24px -8px rgba(13,20,35,0.18);"></div>
         </div>
         <div>
           <label for="birth_country">Country<span class="required-marker">*</span></label>
           <input type="text" id="birth_country" name="birth_country" placeholder="USA" required value="USA" autocomplete="country-name">
         </div>
       </div>
+      <p style="font-size:10px; color:var(--mute); margin:4px 0 0; opacity:0.65;">Place suggestions via OpenStreetMap</p>
 
       <!-- Roles — always visible. Lift Light uses them; Launch Light ignores. Max 3 per Brooke's 10/08 call. -->
       <div id="rolesSection" style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border);">
@@ -352,6 +354,86 @@
   unknownTime.addEventListener('change', () => {
     birthTime.disabled = unknownTime.checked;
     if (unknownTime.checked) birthTime.value = '';
+  });
+
+  // Birth-city autocomplete via OpenStreetMap Nominatim.
+  // Debounced input → fetch top matches → render dropdown → click fills
+  // "City, State" into the city field + the country into the country field.
+  // Nominatim is free + no key; rate limit is 1 req/sec per IP, well under
+  // threshold with the 300ms debounce.
+  const birthCityInput = document.getElementById('birth_city');
+  const birthCountryInput = document.getElementById('birth_country');
+  const cityDropdown = document.getElementById('cityAutocomplete');
+  let cityDebounce;
+  let cityFetchSeq = 0;
+
+  function hideCityDropdown() {
+    cityDropdown.style.display = 'none';
+    cityDropdown.innerHTML = '';
+  }
+
+  function renderCityOptions(results) {
+    cityDropdown.innerHTML = '';
+    if (!results || results.length === 0) {
+      hideCityDropdown();
+      return;
+    }
+    results.forEach((r) => {
+      const addr = r.address || {};
+      // City-ish name (OSM returns many fields depending on place type).
+      const cityName = addr.city || addr.town || addr.village || addr.hamlet
+        || addr.municipality || addr.county || r.name || '';
+      const stateName = addr.state || addr.region || addr.state_district || '';
+      const countryName = addr.country || '';
+      if (!cityName || !countryName) return;
+      const displayLine = [cityName, stateName, countryName].filter(Boolean).join(', ');
+      const cityPlusState = stateName ? `${cityName}, ${stateName}` : cityName;
+
+      const row = document.createElement('div');
+      row.textContent = displayLine;
+      row.style.cssText = 'padding:10px 14px; cursor:pointer; font-size:14px; border-bottom:1px solid #f0ead9;';
+      row.addEventListener('mousedown', (ev) => {
+        // mousedown fires BEFORE blur — otherwise the input blurs and the
+        // dropdown hides before the click registers.
+        ev.preventDefault();
+        birthCityInput.value = cityPlusState;
+        birthCountryInput.value = countryName;
+        hideCityDropdown();
+      });
+      row.addEventListener('mouseenter', () => { row.style.background = 'var(--gold-soft)'; });
+      row.addEventListener('mouseleave', () => { row.style.background = ''; });
+      cityDropdown.appendChild(row);
+    });
+    cityDropdown.style.display = cityDropdown.children.length > 0 ? 'block' : 'none';
+  }
+
+  async function searchCities(query) {
+    const seq = ++cityFetchSeq;
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=6&featuretype=city`;
+      // Nominatim accepts the browser's default User-Agent; no custom header needed.
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (seq !== cityFetchSeq) return; // stale response — a newer query is in flight
+      renderCityOptions(data);
+    } catch { /* network error — silently drop; user can still type manually */ }
+  }
+
+  birthCityInput.addEventListener('input', () => {
+    const q = birthCityInput.value.trim();
+    clearTimeout(cityDebounce);
+    if (q.length < 3) { hideCityDropdown(); return; }
+    cityDebounce = setTimeout(() => searchCities(q), 300);
+  });
+
+  birthCityInput.addEventListener('blur', () => {
+    // Delay so mousedown on a row can fire first.
+    setTimeout(hideCityDropdown, 150);
+  });
+
+  birthCityInput.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') hideCityDropdown();
   });
 
   function showError(msg) {
