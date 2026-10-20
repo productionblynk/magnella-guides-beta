@@ -15,10 +15,11 @@
   const SUPABASE_ANON_KEY = 'sb_publishable_N6LQ3dtHkMAdp9JD0GfdEg_vW_uUUjc';
   // Guide HTML hosting URL template. Keep in sync with where the generator pushes.
   const GUIDE_URL_TEMPLATE = 'https://productionblynk.github.io/magnella-guides-beta/{id}.html';
-  // true = rows show "For {name}" + "View {name}'s guide" (gifts possible).
+  // true = rows show "For {name}" + "View {name}'s guide" (gift-buying UX).
   // false = rows show product + date only, button "View your guide".
-  // Scope decision 2026-10-19: v1 is self-recipient only but the UX supports gifts.
-  const SHOW_RECIPIENT = true;
+  // Scope decision 2026-10-19: v1 ships self-recipient only (false). When
+  // gift-buying launches, flip to true — the design + schema already support it.
+  const SHOW_RECIPIENT = false;
   const RESEND_COOLDOWN_S = 30;
 
   const params = new URLSearchParams(location.search);
@@ -151,10 +152,10 @@
       await new Promise((r) => setTimeout(r, 700));
       if (params.get('demo') === 'empty') return [];
       const url = 'https://productionblynk.github.io/magnella-guides-beta/28dc1817-45f9-43eb-ad70-124c66b15d31.html';
+      // MVP demo: single-user, their own guide. When gift-buying launches,
+      // this can expand to show multiple recipients.
       return [
-        { created_at: '2026-10-12', product: 'Lift Light', recipient_first_name: 'Shonna', guide_url: url },
-        { created_at: '2026-09-03', product: 'Launch Light', recipient_first_name: 'Kyla', guide_url: url },
-        { created_at: '2026-06-18', product: 'Lift Light', recipient_first_name: 'Jennifer', guide_url: url },
+        { created_at: '2026-10-12', product: 'Lift Light', recipient_first_name: 'You', guide_url: url },
       ];
     }
     // Real query: pull delivered reports for signed-in user (RLS filters by email).
