@@ -155,7 +155,7 @@
       // MVP demo: single-user, their own guide. When gift-buying launches,
       // this can expand to show multiple recipients.
       return [
-        { created_at: '2026-10-12', product: 'Lift Light', recipient_first_name: 'You', guide_url: url },
+        { id: '28dc1817-45f9-43eb-ad70-124c66b15d31', created_at: '2026-10-12', product: 'Lift Light', recipient_first_name: 'You', guide_url: url },
       ];
     }
     // Real query: pull delivered reports for signed-in user (RLS filters by email).
@@ -166,6 +166,7 @@
       .order('created_at', { ascending: false });
     if (error) throw error;
     return (data || []).map((row) => ({
+      id: row.id,
       created_at: row.delivered_at || row.created_at,
       product: productLabel(row.product),
       recipient_first_name: firstName(row.intakes?.legal_name),
@@ -189,59 +190,60 @@
       li.querySelector('.mg-guide__date').textContent = SHOW_RECIPIENT ? `Created ${fmtDate(g.created_at)}` : '';
       const a = li.querySelector('a');
       const label = li.querySelector('.mg-guide__label');
-      const arrow = li.querySelector('.mg-guide__arrow');
-      a.href = g.guide_url;
-
-      // GitHub Pages takes ~30-60s to build after a push. Fresh guides may
-      // 404 for a brief window after generation. HEAD-check and show a
-      // "Preparing..." state until the URL returns 200. Falls back to
-      // enabled after a few minutes regardless (user can click; Pages
-      // almost certainly serves by then).
       const readyLabel = SHOW_RECIPIENT ? `View ${g.recipient_first_name}'s guide` : 'View your guide';
-      const pendingLabel = 'Preparing your guide…';
+      label.textContent = readyLabel;
+      // Fallback href — direct public Pages URL. Used if the signed-URL
+      // endpoint isn't deployed yet, or if the call fails for any reason.
+      a.href = g.guide_url;
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener');
 
-      function setPending() {
-        label.textContent = pendingLabel;
-        if (arrow) arrow.hidden = true;
-        a.setAttribute('aria-disabled', 'true');
-        a.style.opacity = '0.6';
-        a.style.pointerEvents = 'none';
-      }
-      function setReady() {
-        label.textContent = readyLabel;
-        if (arrow) arrow.hidden = false;
-        a.removeAttribute('aria-disabled');
-        a.style.opacity = '';
-        a.style.pointerEvents = '';
-      }
+      // Intercept clicks to request a fresh signed URL each time — a leaked
+      // Pages URL from a prior session can't be shared permanently if we
+      // route through private storage with short-lived access.
+      a.addEventListener('click', async (e) => {
+        if (DEMO || !sb) return; // demo / unauth: let the direct href take over
+        e.preventDefault();
+        const original = label.textContent;
+        label.textContent = 'Opening…';
+        try {
+          const signed = await requestSignedGuideUrl(g.id);
+          window.open(signed || g.guide_url, '_blank', 'noopener');
+        } finally {
+          label.textContent = original;
+        }
+      });
 
-      setPending();
-      pollGuideReady(g.guide_url, setReady);
       list.appendChild(li);
     });
   }
 
-  // Poll a guide URL via HEAD until it responds 200 (or we give up).
-  // Starts fast (1s), backs off to every 5s, caps at 2min total.
-  // On CORS-opaque response (future cross-origin case) assumes ready.
-  async function pollGuideReady(url, onReady) {
-    const deadline = Date.now() + 120000; // 2 minutes
-    let delay = 1000;
-    while (Date.now() < deadline) {
-      try {
-        const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
-        if (res.ok || res.type === 'opaque') {
-          onReady();
-          return;
-        }
-      } catch {
-        // Network error or CORS block — treat as still waiting, keep polling.
+  // Call the issue-guide-url edge function to get a short-lived signed URL
+  // for a specific report. Returns the URL string, or null if the call
+  // failed (caller falls back to the public Pages URL).
+  async function requestSignedGuideUrl(reportId) {
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session?.access_token) return null;
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/issue-guide-url`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ report_id: reportId }),
+      });
+      if (!res.ok) {
+        console.warn('issue-guide-url failed:', res.status);
+        return null;
       }
-      await new Promise((r) => setTimeout(r, delay));
-      delay = Math.min(delay * 1.6, 5000);
+      const body = await res.json();
+      return body?.url || null;
+    } catch (err) {
+      console.warn('issue-guide-url call errored:', err);
+      return null;
     }
-    // Timeout fallback — enable anyway so user can at least try.
-    onReady();
   }
 
   async function enterAccount(email) {
