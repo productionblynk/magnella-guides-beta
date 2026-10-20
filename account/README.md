@@ -1,26 +1,51 @@
 # Magnella Account Page
 
-Customer-facing account page served at `account.magnella.com`. Lets a customer log in via magic link and view their past guides.
+Customer-facing account page at `account.magnella.com` (once DNS is live).
+Lets a customer log in via magic link and view their past guides.
+
+## Files
+
+```
+index.html    Page markup (safe to edit for structural changes)
+style.css     All visual styling (safe to edit for colors/typography/layout)
+account.js    Supabase auth + guide list + state machine (DO NOT EDIT behavior)
+README.md     This file
+```
 
 ## What's safe to edit
 
-- `index.html` — page markup, text content, layout
-- `styles.css` — colors, typography, spacing, visual design
-- Any additional CSS or static asset files you add
+- `index.html` — markup, text content, structure
+- `style.css` — colors, fonts, spacing, visual design
 
 ## What is OFF-LIMITS
 
-Files inside `/account/core/` are the Supabase client, authentication flow, and database queries. **DO NOT MODIFY them.** Editing those files breaks:
-- Customer login
-- Guide retrieval
-- Session management
+- `account.js` — Supabase authentication, session handling, database queries.
+  Editing this file breaks customer login and guide access. If you need something
+  changed there, flag to B-Lynk engineering — don't guess.
 
-Every file in `/core/` has a `DO NOT EDIT` banner at the top. If you (or an AI agent) need something changed in that area, flag it — don't guess.
+## Design reference
 
-## Visual direction
+Based on the design agent's handoff (2026-10-19). Pixel specs maintained in
+`docs/account-page-design-brief.md`. The design agent delivered a reference
+implementation we adopted here with these changes:
 
-See the design brief maintained by B-Lynk + the generated guide templates for brand reference (Cormorant Garamond + Nunito Sans + Dancing Script; sky-blue + soft-gold palette; off-white backgrounds). The account page should feel like a quiet companion to the guides, not a loud dashboard.
+- Wired Supabase prod URL + publishable key into `account.js`
+- Changed query from a single `guides` view to a `reports → intakes` join
+  matching our actual schema
+- Removed `shouldCreateUser: false` — our customers may be first-time logging
+  in after a prior guide purchase, so the magic link flow needs to create
+  their auth user on first sign-in
+
+## Demo mode (no Supabase)
+
+For design iteration or review without burning auth emails, append `?demo`
+to the URL:
+
+- `?demo` — click through sign-in → sent → guide list (mock data)
+- `?demo=empty` — jump to the empty state
+- `?demo&signed-in` — jump straight to the list
 
 ## Deployment
 
-Pushes to `main` auto-deploy to GitHub Pages (serving `account.magnella.com` once Brooke configures the DNS CNAME).
+Pushes to `main` auto-deploy to GitHub Pages. Also auto-mirror to
+`productionblynk/magnella-account-mirror` via `.github/workflows/mirror.yml`.

@@ -1,80 +1,111 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Magnella — your account">
-<title>Magnella — Your Account</title>
-<link rel="stylesheet" href="styles.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Magnella · Your guides</title>
+  <meta name="description" content="Magnella · your account">
+  <!-- Reference only: replace with self-hosted @font-face (see README) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400&family=Nunito+Sans:wght@400;600;700&family=Dancing+Script:wght@500&display=swap">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<main class="account-page">
+  <header class="mg-header">
+    <a class="mg-logo" href="https://magnella.com">Magnella</a>
+    <a class="mg-header__link" href="https://magnella.com" data-when="signed-out">Back to magnella.com</a>
+    <button class="mg-btn mg-btn--header" type="button" data-action="sign-out" data-when="signed-in" hidden>Sign out</button>
+  </header>
 
-  <!-- LOGGED OUT: email login form -->
-  <section id="view-login" class="view" hidden>
-    <header class="page-header">
-      <h1>Magnella</h1>
-      <p class="tagline">Sign in to see your guides.</p>
-    </header>
-    <form id="login-form" class="login-form" novalidate>
-      <label for="email">Your email</label>
-      <input id="email" type="email" name="email" required autocomplete="email" placeholder="you@example.com">
-      <button type="submit" id="login-submit">Send me a sign-in link</button>
-      <p id="login-error" class="form-error" hidden></p>
-    </form>
-    <p class="helper-text">We'll send you a one-time link. No password needed.</p>
-  </section>
-
-  <!-- CONFIRMATION: after submitting email -->
-  <section id="view-check-email" class="view" hidden>
-    <header class="page-header">
-      <h1>Check your email</h1>
-      <p class="tagline">We just sent a sign-in link to <span id="confirm-email"></span>.</p>
-    </header>
-    <p class="helper-text">
-      Click the link in that email to sign in. The link opens here and remembers you.
-    </p>
-    <button type="button" id="back-to-login" class="link-button">Use a different email</button>
-  </section>
-
-  <!-- LOGGED IN: guide list -->
-  <section id="view-guides" class="view" hidden>
-    <header class="page-header">
-      <h1>Your guides</h1>
-      <p class="tagline" id="user-email"></p>
-      <button type="button" id="signout" class="link-button">Sign out</button>
-    </header>
-
-    <div id="guides-loading" class="helper-text">Loading your guides…</div>
-
-    <div id="guides-empty" class="empty-state" hidden>
-      <p>You don't have any guides yet.</p>
-      <p class="helper-text">Visit <a href="https://magnella.com">magnella.com</a> to order one.</p>
+  <!-- STATE A1: sign in -->
+  <main class="mg-stage" id="view-signin">
+    <div class="mg-card">
+      <div class="mg-card__head">
+        <div class="mg-eyebrow">Your guides</div>
+        <h1 class="mg-h1 mg-h1--card">Welcome back.</h1>
+        <p class="mg-lede">Enter the email you used at checkout and we'll send you a link to sign in. Nothing to remember.</p>
+      </div>
+      <div class="mg-notice" id="signin-notice" role="status" hidden></div>
+      <form class="mg-form" id="signin-form" novalidate>
+        <div class="mg-field">
+          <label class="mg-label" for="email">Email address</label>
+          <input class="mg-input" id="email" name="email" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" aria-describedby="email-error" required>
+          <div class="mg-error" id="email-error" role="alert" hidden></div>
+        </div>
+        <button class="mg-btn mg-btn--primary mg-btn--lg mg-btn--block" type="submit">Send my sign-in link</button>
+      </form>
+      <p class="mg-small" style="text-align:center">New here? <a href="https://magnella.com"><strong>Find your Light at magnella.com</strong></a></p>
     </div>
+  </main>
 
-    <ul id="guides-list" class="guides-list" hidden></ul>
-  </section>
+  <!-- STATE A2: link sent -->
+  <main class="mg-stage" id="view-sent" hidden>
+    <div class="mg-card mg-card--center" role="status">
+      <span class="mg-mark" aria-hidden="true"><span></span></span>
+      <div class="mg-card__head">
+        <h1 class="mg-h1 mg-h1--card" tabindex="-1" id="sent-title">Check your inbox.</h1>
+        <p class="mg-lede">We've sent a sign-in link to <strong id="sent-email" style="color:var(--ink);word-break:break-all"></strong>. Open it on this device and you'll land right back here.</p>
+        <p class="mg-small">The link is good for one hour. If it hasn't arrived in a few minutes, try your promotions or spam folder.</p>
+      </div>
+      <div class="mg-card__actions">
+        <button class="mg-btn mg-btn--secondary" type="button" data-action="resend">Send it again</button>
+        <button class="mg-textbtn" type="button" data-action="change-email">Use a different email</button>
+      </div>
+      <p class="mg-small" id="sent-feedback" aria-live="polite"></p>
+    </div>
+  </main>
 
-  <!-- GENERIC ERROR -->
-  <section id="view-error" class="view" hidden>
-    <header class="page-header">
-      <h1>Something went wrong</h1>
-      <p class="tagline" id="error-detail"></p>
-    </header>
-    <button type="button" id="retry" class="link-button">Try again</button>
-  </section>
+  <!-- STATE B: signed in (list, loading, empty, load error) -->
+  <main class="mg-account" id="view-account" hidden>
+    <div class="mg-account__inner">
+      <div class="mg-account__head">
+        <div class="mg-eyebrow">Your guides</div>
+        <h1 class="mg-h1" tabindex="-1" id="account-title">Welcome back.</h1>
+        <p class="mg-lede">Every Light you've ordered lives here, ready whenever you want to return to it. <span class="mg-account__signed">Signed in as <span id="account-email"></span>.</span></p>
+      </div>
 
-</main>
+      <div id="guides-loading" aria-busy="true" aria-label="Loading your guides" style="display:grid;gap:14px">
+        <div class="mg-skeleton"></div><div class="mg-skeleton"></div><div class="mg-skeleton"></div>
+      </div>
 
-<!-- Supabase JS client (SDK) via CDN -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+      <ul class="mg-guides" id="guides-list" hidden></ul>
 
-<!-- Core logic (DO NOT EDIT — see /account/core/README.md) -->
-<script src="core/supabase-client.js"></script>
-<script src="core/auth.js"></script>
-<script src="core/queries.js"></script>
+      <p class="mg-small" id="guides-missing" hidden>Missing a guide? It may live under a different email. Sign out and try that one, or write to us at <a href="mailto:hello@magnella.com">hello@magnella.com</a>.</p>
 
-<!-- UI glue -->
-<script src="app.js"></script>
+      <div class="mg-empty" id="guides-empty" hidden>
+        <span class="mg-mark" aria-hidden="true"><span></span></span>
+        <h2 class="mg-empty__title">Nothing here yet.</h2>
+        <p class="mg-lede">You don't have any guides yet. When you order a Light, it will wait for you here.</p>
+        <a class="mg-btn mg-btn--secondary" href="https://magnella.com">Visit magnella.com</a>
+        <p class="mg-small">Ordered with a different email? <button class="mg-textbtn mg-textbtn--inline" type="button" data-action="sign-out">Sign out and try that one</button>.</p>
+      </div>
+
+      <p class="mg-small" id="guides-error" role="alert" hidden>Your guides are taking a moment to appear. Try refreshing, and if they still don't show, write to <a href="mailto:hello@magnella.com">hello@magnella.com</a>.</p>
+    </div>
+  </main>
+
+  <div class="mg-band" data-when="signed-in" hidden>Stay curious. See the patterns. Be limitless.</div>
+
+  <footer class="mg-footer">
+    <span class="mg-logo">Magnella</span>
+    <a href="mailto:hello@magnella.com">hello@magnella.com</a>
+    <span>© 2026 Magnella</span>
+  </footer>
+
+  <template id="guide-row">
+    <li class="mg-guide">
+      <div class="mg-guide__info">
+        <div class="mg-guide__product"></div>
+        <h2 class="mg-guide__title"></h2>
+        <div class="mg-guide__date"></div>
+      </div>
+      <a class="mg-btn mg-btn--primary" target="_blank" rel="noopener">
+        <span class="mg-guide__label"></span><span class="mg-guide__arrow" aria-hidden="true">↗</span><span class="sr-only">(opens in a new tab)</span>
+      </a>
+    </li>
+  </template>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="account.js"></script>
 </body>
 </html>
