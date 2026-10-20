@@ -187,12 +187,61 @@
         title.textContent = fmtDate(g.created_at);
       }
       li.querySelector('.mg-guide__date').textContent = SHOW_RECIPIENT ? `Created ${fmtDate(g.created_at)}` : '';
-      li.querySelector('.mg-guide__label').textContent = SHOW_RECIPIENT
-        ? `View ${g.recipient_first_name}'s guide`
-        : 'View your guide';
-      li.querySelector('a').href = g.guide_url;
+      const a = li.querySelector('a');
+      const label = li.querySelector('.mg-guide__label');
+      const arrow = li.querySelector('.mg-guide__arrow');
+      a.href = g.guide_url;
+
+      // GitHub Pages takes ~30-60s to build after a push. Fresh guides may
+      // 404 for a brief window after generation. HEAD-check and show a
+      // "Preparing..." state until the URL returns 200. Falls back to
+      // enabled after a few minutes regardless (user can click; Pages
+      // almost certainly serves by then).
+      const readyLabel = SHOW_RECIPIENT ? `View ${g.recipient_first_name}'s guide` : 'View your guide';
+      const pendingLabel = 'Preparing your guide…';
+
+      function setPending() {
+        label.textContent = pendingLabel;
+        if (arrow) arrow.hidden = true;
+        a.setAttribute('aria-disabled', 'true');
+        a.style.opacity = '0.6';
+        a.style.pointerEvents = 'none';
+      }
+      function setReady() {
+        label.textContent = readyLabel;
+        if (arrow) arrow.hidden = false;
+        a.removeAttribute('aria-disabled');
+        a.style.opacity = '';
+        a.style.pointerEvents = '';
+      }
+
+      setPending();
+      pollGuideReady(g.guide_url, setReady);
       list.appendChild(li);
     });
+  }
+
+  // Poll a guide URL via HEAD until it responds 200 (or we give up).
+  // Starts fast (1s), backs off to every 5s, caps at 2min total.
+  // On CORS-opaque response (future cross-origin case) assumes ready.
+  async function pollGuideReady(url, onReady) {
+    const deadline = Date.now() + 120000; // 2 minutes
+    let delay = 1000;
+    while (Date.now() < deadline) {
+      try {
+        const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+        if (res.ok || res.type === 'opaque') {
+          onReady();
+          return;
+        }
+      } catch {
+        // Network error or CORS block — treat as still waiting, keep polling.
+      }
+      await new Promise((r) => setTimeout(r, delay));
+      delay = Math.min(delay * 1.6, 5000);
+    }
+    // Timeout fallback — enable anyway so user can at least try.
+    onReady();
   }
 
   async function enterAccount(email) {
