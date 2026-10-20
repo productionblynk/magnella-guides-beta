@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Magnella — your account">
+<title>Magnella — Your Account</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main class="account-page">
+
+  <!-- LOGGED OUT: email login form -->
+  <section id="view-login" class="view" hidden>
+    <header class="page-header">
+      <h1>Magnella</h1>
+      <p class="tagline">Sign in to see your guides.</p>
+    </header>
+    <form id="login-form" class="login-form" novalidate>
+      <label for="email">Your email</label>
+      <input id="email" type="email" name="email" required autocomplete="email" placeholder="you@example.com">
+      <button type="submit" id="login-submit">Send me a sign-in link</button>
+      <p id="login-error" class="form-error" hidden></p>
+    </form>
+    <p class="helper-text">We'll send you a one-time link. No password needed.</p>
+  </section>
+
+  <!-- CONFIRMATION: after submitting email -->
+  <section id="view-check-email" class="view" hidden>
+    <header class="page-header">
+      <h1>Check your email</h1>
+      <p class="tagline">We just sent a sign-in link to <span id="confirm-email"></span>.</p>
+    </header>
+    <p class="helper-text">
+      Click the link in that email to sign in. The link opens here and remembers you.
+    </p>
+    <button type="button" id="back-to-login" class="link-button">Use a different email</button>
+  </section>
+
+  <!-- LOGGED IN: guide list -->
+  <section id="view-guides" class="view" hidden>
+    <header class="page-header">
+      <h1>Your guides</h1>
+      <p class="tagline" id="user-email"></p>
+      <button type="button" id="signout" class="link-button">Sign out</button>
+    </header>
+
+    <div id="guides-loading" class="helper-text">Loading your guides…</div>
+
+    <div id="guides-empty" class="empty-state" hidden>
+      <p>You don't have any guides yet.</p>
+      <p class="helper-text">Visit <a href="https://magnella.com">magnella.com</a> to order one.</p>
+    </div>
+
+    <ul id="guides-list" class="guides-list" hidden></ul>
+  </section>
+
+  <!-- GENERIC ERROR -->
+  <section id="view-error" class="view" hidden>
+    <header class="page-header">
+      <h1>Something went wrong</h1>
+      <p class="tagline" id="error-detail"></p>
+    </header>
+    <button type="button" id="retry" class="link-button">Try again</button>
+  </section>
+
+</main>
+
+<!-- Supabase JS client (SDK) via CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- Core logic (DO NOT EDIT — see /account/core/README.md) -->
+<script src="core/supabase-client.js"></script>
+<script src="core/auth.js"></script>
+<script src="core/queries.js"></script>
+
+<!-- UI glue -->
+<script src="app.js"></script>
+</body>
+</html>
