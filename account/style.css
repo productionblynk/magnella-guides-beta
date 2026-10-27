@@ -185,3 +185,9 @@ a:hover { color: var(--peri-deep); }
 .mg-footer .mg-logo { font-size: 20px; }
 .mg-footer a { color: var(--muted); text-decoration: none; }
 .mg-footer a:hover { color: var(--ink); }
+
+/* Suppress the browser's default focus ring when we programmatically
+ * .focus() the H1 after a view transition (a11y requirement, but the
+ * visible border on page load looked weird to Brooke). Keyboard tabbing
+ * still shows the ring via :focus-visible. */
+.mg-h1[tabindex]:focus:not(:focus-visible) { outline: none; }
