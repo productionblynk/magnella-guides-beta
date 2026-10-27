@@ -186,8 +186,20 @@ a:hover { color: var(--peri-deep); }
 .mg-footer a { color: var(--muted); text-decoration: none; }
 .mg-footer a:hover { color: var(--ink); }
 
-/* Suppress the browser's default focus ring when we programmatically
- * .focus() the H1 after a view transition (a11y requirement, but the
- * visible border on page load looked weird to Brooke). Keyboard tabbing
- * still shows the ring via :focus-visible. */
-.mg-h1[tabindex]:focus:not(:focus-visible) { outline: none; }
+/* Suppress the focus ring on the a11y-landmark H1s (#account-title and
+ * #sent-title). These are tabindex="-1" targets that we programmatically
+ * .focus() after a view transition so screen readers announce the new
+ * region — they are NOT interactive controls, so there's no reason for
+ * sighted keyboard users to see focus on them either. The screen reader
+ * announcement works whether or not a ring is painted.
+ *
+ * Earlier attempt used :focus:not(:focus-visible) hoping Chrome would
+ * treat programmatic focus as "not visible," but Chrome applies
+ * :focus-visible to tabindex="-1" landmarks on page load regardless,
+ * so the border still showed. Suppressing unconditionally fixes it
+ * without harming keyboard navigation (nothing to activate on an H1). */
+.mg-h1[tabindex]:focus,
+.mg-h1[tabindex]:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
