@@ -16,6 +16,10 @@
 
       var emailEl = $("magnella-waitlist-email");
       var productEl = $("magnella-waitlist-product");
+      // First name is optional (added 2026-11-17 per Brooke's 11-12 call).
+      // Form may omit the field entirely — we only send first_name when the
+      // element exists and the user typed something.
+      var firstNameEl = $("magnella-waitlist-first-name");
       var submitEl = $("magnella-waitlist-submit");
       var successEl = $("magnella-waitlist-success");
       var errorEl = $("magnella-waitlist-error");
@@ -26,12 +30,15 @@
       }
       var email = (emailEl.value || "").trim();
       var product = productEl ? (productEl.value || "lift-light") : "lift-light";
+      var firstName = firstNameEl ? (firstNameEl.value || "").trim() : "";
 
       if (successEl) successEl.hidden = true;
       if (errorEl) { errorEl.hidden = true; errorEl.textContent = ""; }
       if (submitEl) submitEl.disabled = true;
 
       try {
+        var payload = { email: email, product: product };
+        if (firstName) payload.first_name = firstName;
         var res = await fetch(ENDPOINT, {
           method: "POST",
           headers: {
@@ -39,7 +46,7 @@
             "apikey": APIKEY,
             "Authorization": "Bearer " + APIKEY,
           },
-          body: JSON.stringify({ email: email, product: product }),
+          body: JSON.stringify(payload),
         });
         var data = null;
         try { data = await res.json(); } catch (_) { /* ignore */ }
